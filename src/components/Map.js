@@ -7,6 +7,9 @@ import { success as mapSuccess } from '../actions/map';
 import localitiesGeoJSON from '../assets/data/localidades.geojson';
 import gmapsStyles from '../assets/data/gmaps-styles.json';
 import directorioECAS from '../assets/data/directorio-ECAS.json';
+import directorioARindexedByLoc from '../assets/data/directorio-AR-indexedByLoc.json';
+import directorioECASindexedByLoc from '../assets/data/directorio-ECAS-indexedByLoc.json';
+import directorioIETDHindexedByLoc from '../assets/data/directorio-IETDH-indexedByLoc.json';
 
 const style = {
   width: '100%',
@@ -31,7 +34,7 @@ export class MapComponent extends Component {
   };
 
   componentDidMount() {
-    navigator.geolocation.getCurrentPosition(position => {
+    navigator.geolocation.getCurrentPosition((position) => {
       this.setState({
         currentLocation: position
       });
@@ -70,10 +73,19 @@ export class MapComponent extends Component {
   };
 
   renderInfoWindowContent = () => {
+    let loc = document.getElementById('loc-id').textContent;
     ReactDOM.render(
       <div>
+        <div>{`${
+          directorioARindexedByLoc[loc] ? directorioARindexedByLoc[loc].length : 0
+        } Asociaciones de Recicladores`}</div>
+        <div>{`${
+          directorioECASindexedByLoc[loc] ? directorioECASindexedByLoc[loc].length : 0
+        } Estaciones de Clasificación y Aprovechamiento de Residuos`}</div>
+        <div>{`${
+          directorioIETDHindexedByLoc[loc] ? directorioIETDHindexedByLoc[loc].length : 0
+        } Instituciones de Educación para el Trabajo y el Desarrollo Humano`}</div>
         <RaisedButton onClick={this.onInfoWindowButtonClick}>Seleccionar</RaisedButton>
-        {/* <button onClick={this.onInfoWindowButtonClick}>Seleccionar</button> */}
       </div>,
       document.getElementById('iw-content')
     );
@@ -89,32 +101,35 @@ export class MapComponent extends Component {
 
     const coords = this.state.currentLocation.coords;
     const currentPosition = new google.maps.LatLng(coords.latitude, coords.longitude);
-    const positions = this.state.directorioECAS.map(ECA => new google.maps.LatLng(ECA.Latitud, ECA.Longitud));
+    const positions = this.state.directorioECAS.map(
+      (ECA) => new google.maps.LatLng(ECA.Latitud, ECA.Longitud)
+    );
 
-    distanceMatrixService.getDistanceMatrix({
-      origins: [currentPosition],
-      destinations: [...positions],
-      travelMode: 'DRIVING'
-    }, (response, status) => {
-      let nearestIndex = 0;
-      let minValue = response.rows[0].elements[0].distance.value;
+    distanceMatrixService.getDistanceMatrix(
+      {
+        origins: [currentPosition],
+        destinations: [...positions],
+        travelMode: 'DRIVING'
+      },
+      (response, status) => {
+        let nearestIndex = 0;
+        let minValue = response.rows[0].elements[0].distance.value;
 
-      response.rows[0].elements.forEach((element, index) => {
-        if (element.distance.value < minValue) {
-          minValue = element.distance.value;
-          nearestIndex = index;
-        }
-      });
+        response.rows[0].elements.forEach((element, index) => {
+          if (element.distance.value < minValue) {
+            minValue = element.distance.value;
+            nearestIndex = index;
+          }
+        });
 
-      directorioECAS[nearestIndex].isNearest = true;
+        directorioECAS[nearestIndex].isNearest = true;
 
-      this.setState((prevState) => {
-        prevState.directorioECAS[nearestIndex].isNearest = true;
-        return { directorioECAS: prevState.directorioECAS };
-      })
-
-    });
-
+        this.setState((prevState) => {
+          prevState.directorioECAS[nearestIndex].isNearest = true;
+          return { directorioECAS: prevState.directorioECAS };
+        });
+      }
+    );
 
     this.props.dispatch(mapSuccess({ mapProps, map }));
     map.data.loadGeoJson(localitiesGeoJSON);
@@ -188,30 +203,31 @@ export class MapComponent extends Component {
         <Marker
           title={'Localización actual'}
           name={'Industria X'}
-          position={{lat: currentLocation.coords.latitude, lng: currentLocation.coords.longitude }}
-          />
+          position={{ lat: currentLocation.coords.latitude, lng: currentLocation.coords.longitude }}
+        />
 
-        { this.state.directorioECAS.map((ECA, index) => (
-            <Marker
-              key={index}
-              title={'ECA'}
-              name={'ECA'}
-              position = {
-                {
-                  lat: ECA.Latitud,
-                  lng: ECA.Longitud
-                }
-              }
-              icon = {
-                {
-                  url: !ECA.isNearest ? 'https://cdn3.iconfinder.com/data/icons/map-markers-2-1/512/recycling-512.png' : 'https://cdn1.iconfinder.com/data/icons/basic-ui-elements-coloricon/21/06_1-512.png',
-                  anchor: !ECA.isNearest ? new google.maps.Point(36, 36) : new google.maps.Point(48, 48),
-                  scaledSize: !ECA.isNearest ? new google.maps.Size(36, 36) : new google.maps.Size(48, 48)
-                }
-              }
-              />
-          ))
-        }
+        {this.state.directorioECAS.map((ECA, index) => (
+          <Marker
+            key={index}
+            title={'ECA'}
+            name={'ECA'}
+            position={{
+              lat: ECA.Latitud,
+              lng: ECA.Longitud
+            }}
+            icon={{
+              url: !ECA.isNearest
+                ? 'https://cdn3.iconfinder.com/data/icons/map-markers-2-1/512/recycling-512.png'
+                : 'https://cdn1.iconfinder.com/data/icons/basic-ui-elements-coloricon/21/06_1-512.png',
+              anchor: !ECA.isNearest
+                ? new google.maps.Point(36, 36)
+                : new google.maps.Point(48, 48),
+              scaledSize: !ECA.isNearest
+                ? new google.maps.Size(36, 36)
+                : new google.maps.Size(48, 48)
+            }}
+          />
+        ))}
         <InfoWindow
           // marker={this.state.activeMarker}
           visible={this.state.showingInfoWindow}
@@ -219,7 +235,7 @@ export class MapComponent extends Component {
           onClose={this.onInfoWindowClose}
         >
           <div>
-            <h3>{this.state.selectedPlace.name}</h3>
+            <h3 id="loc-id">{this.state.selectedPlace.name}</h3>
             <div id="iw-content" />
           </div>
         </InfoWindow>
